@@ -11,8 +11,8 @@
 
 #include <string.h>
 
-#define SERVER_PORT 6000
-#define SERVER_ADDR "192.168.28.96"
+#define SERVER_PORT 21
+#define SERVER_ADDR "127.0.0.1"
 
 int main(int argc, char **argv)
 {
@@ -21,7 +21,7 @@ int main(int argc, char **argv)
         printf("**** No arguments needed. They will be ignored. Carrying ON.\n");
     int sockfd;
     struct sockaddr_in server_addr;
-    char buf[] = "Mensagem de teste na travessia da pilha TCP/IP\n";
+    char buf[255] = "";
     size_t bytes;
 
     /*server address handling*/
@@ -45,14 +45,43 @@ int main(int argc, char **argv)
         exit(-1);
     }
     /*send a string to the server*/
-    bytes = write(sockfd, buf, strlen(buf));
+    bytes = send(sockfd, buf, strlen(buf), 0);
+    printf("Bytes escritos %ld\n", bytes);
+
+    bytes = recv(sockfd, buf, 255, 0);
+    printf("bytes read: %d\n", bytes);
+    buf[bytes] = 0;
+
+    printf("%s\n", buf);
+
+    const char* auth =  "user nunoa";
+
+    bytes = send(sockfd, auth, strlen(auth), 0);
+    printf("Bytes escritos %ld\n", bytes);
+
+    bytes = recv(sockfd, buf, 255, 0);
+    printf("bytes read: %d\n", bytes);
+    buf[bytes] = 0;
+
+    printf("%s\n", buf);
+
+    const char* pass = "PASS C";
+
+    bytes = send(sockfd, pass, strlen(pass), 0);
+
     if (bytes > 0)
-        printf("Bytes escritos %ld\n", bytes);
+    printf("Bytes escritos %ld\n", bytes);
     else
     {
         perror("write()");
         exit(-1);
     }
+
+    bytes = recv(sockfd, buf, 255, 0);
+    buf[bytes] = 0;
+
+
+    printf("%s\n", buf);
 
     if (close(sockfd) < 0)
     {

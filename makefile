@@ -1,8 +1,8 @@
-CC = gcc
+CC = clang
 
 prog = download
 SRC := src
-INCLUDES := ../include
+INCLUDES := ./
 OBJ := bin
 
 SOURCES := $(wildcard $(SRC)/*.c)

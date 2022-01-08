@@ -1,0 +1,50 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Isrc",
+      "-g",
+      "-Wall",
+      "-c",
+      "-I./",
+      "-o",
+      "bin/ftp.o",
+      "src/ftp.c"
+    ],
+    "directory": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp",
+    "file": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp/src/ftp.c",
+    "output": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp/bin/ftp.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Isrc",
+      "-g",
+      "-Wall",
+      "-c",
+      "-I./",
+      "-o",
+      "bin/main.o",
+      "src/main.c"
+    ],
+    "directory": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp",
+    "file": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp/src/main.c",
+    "output": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp/bin/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-Isrc",
+      "-g",
+      "-Wall",
+      "-c",
+      "-I./",
+      "-o",
+      "bin/socket.o",
+      "src/socket.c"
+    ],
+    "directory": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp",
+    "file": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp/src/socket.c",
+    "output": "/home/nunoa/Documents/FEUP/THIRD_YEAR/RCOM/feup-rcom-ftp/bin/socket.o"
+  }
+]

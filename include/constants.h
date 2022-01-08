@@ -1,0 +1,5 @@
+
+
+#define SERVER_CONTROL_PORT 21
+#define SERVER_DATA_PORT 20
+#define SERVER_ADDR "127.0.0.1"

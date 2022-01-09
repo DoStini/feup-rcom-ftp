@@ -1,23 +1,32 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "include/socket.h"
 #include "include/constants.h"
 
 int main(int argc, char* argv[], char* envp[]) {
-    int sockfd = get_socket(SERVER_ADDR);
-    if (sockfd < 0) {
-        return sockfd;
+    if(argc != 2) {
+        fprintf(stderr, "main(): Please provide the server URL as an argument\n");
+        exit(-1);
     }
+    url_info_t info;
 
-    send(sockfd, "\n", strlen("\n"), 0);
+    parse_url(argv[1], &info);
 
-    char buf[255];
+    // int sockfd = get_socket(SERVER_ADDR);
+    // if (sockfd < 0) {
+    //     return sockfd;
+    // }
 
-    int bytes = recv(sockfd, buf, 255, 0);
-    buf[bytes] = 0;
-    printf("%s\n", buf);
+    // send(sockfd, "\n", strlen("\n"), 0);
 
-    return close_sock(sockfd);
+    // char buf[255];
+
+    // int bytes = recv(sockfd, buf, 255, 0);
+    // buf[bytes] = 0;
+    // printf("%s\n", buf);
+
+    // return close_sock(sockfd);
 }

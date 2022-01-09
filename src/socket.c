@@ -1,3 +1,5 @@
+#include "include/socket.h"
+
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -6,10 +8,51 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <regex.h>
 
 #include "include/constants.h"
 
-struct addrinfo* get_addrinfo(const char* server_url) {
+int parse_url(const char* server_url, url_info_t* url_information) {
+    regex_t preg;
+    const char* pattern =
+        "(ftp://)(([^/@:]+):([^/@:]*)@([^/@:]+)|([^/@:]*)@([^/@:]+)|([^/@:]+))/"
+        "(.+)";
+    char error_message[200];
+
+    int err = regcomp(&preg, pattern, REG_EXTENDED);
+    if (err != 0) {
+        regerror(err, &preg, error_message, sizeof(error_message));
+        fprintf(stderr, "%s\n", error_message);
+
+        regfree(&preg);
+        return ADDR_REGEX_ERR;
+    }
+
+    regmatch_t matches[10];
+    err = regexec(&preg, server_url, 10, matches, 0);
+    if (err != 0) {
+        fprintf(stderr,
+                "The given URL is not valid, it must follow the following "
+                "format:\nftp://[<user>[:[<password>]]@]<host>/<url-path>\n"
+                "Make sure the user, password and host don't include '@', '/' "
+                "or ':'\n");
+
+        regfree(&preg);
+        return ADDR_REGEX_ERR;
+    }
+
+    printf("%d\n", matches->rm_so);
+
+    // char test[1000];
+    // memcpy(test, &server_url[matches[9].rm_so], matches[9].rm_eo);
+    // test[matches[9].rm_eo] = '\0';
+    // printf("%s\n", test);
+
+    regfree(&preg);
+    return OK;
+}
+
+struct addrinfo* get_addrinfo(const url_info_t* url_information) {
     struct addrinfo hints;
 
     memset(&hints, 0, sizeof hints);
@@ -21,7 +64,8 @@ struct addrinfo* get_addrinfo(const char* server_url) {
     struct addrinfo* results;
     int err;
 
-    if ((err = getaddrinfo(server_url, "ftp", &hints, &results)) != 0) {
+    if ((err = getaddrinfo(url_information->hostname, url_information->port,
+                           &hints, &results)) != 0) {
         herror("getaddrinfo()");
         return NULL;
     }
@@ -29,10 +73,10 @@ struct addrinfo* get_addrinfo(const char* server_url) {
     return results;
 }
 
-int get_socket(const char* server_url) {
+int get_socket(const url_info_t* url_information) {
     int sockfd;
 
-    struct addrinfo *results = get_addrinfo(server_url), *it;
+    struct addrinfo *results = get_addrinfo(url_information), *it;
     if (results == NULL) {
         return SOCKET_ERR;
     }

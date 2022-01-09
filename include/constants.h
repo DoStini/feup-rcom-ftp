@@ -5,6 +5,7 @@
 #define SERVER_DATA_PORT 20
 #define SERVER_ADDR "127.0.0.1"
 
+#define MEMORY_ERR -3
 #define ADDR_REGEX_ERR -2
 #define SOCKET_ERR -1
 #define OK 0

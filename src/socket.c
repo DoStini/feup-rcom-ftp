@@ -33,21 +33,31 @@ int get_socket(const char* server_url) {
     int sockfd;
 
     struct addrinfo *results = get_addrinfo(server_url), *it;
+    if (results == NULL) {
+        return SOCKET_ERR;
+    }
 
     for (it = results; it != NULL; it = it->ai_next) {
         // USING STREAM SOCKETS TO ENSURE DATA ARRIVES IN ORDER
-        if ((sockfd = socket(it->ai_family, it->ai_socktype, it->ai_protocol)) < 0) {
+        if ((sockfd = socket(it->ai_family, it->ai_socktype, 0)) < 0) {
             perror("socket()");
             continue;
         }
 
         if (connect(sockfd, it->ai_addr, it->ai_addrlen) < 0) {
             perror("connect()");
-            return SOCKET_ERR;
+            continue;
         }
+
+        break;
     }
 
     freeaddrinfo(results);
+
+    if (it == NULL) {
+        fprintf(stderr, "failed to connect");
+        return SOCKET_ERR;
+    }
 
     return sockfd;
 }

@@ -8,4 +8,4 @@
 #define SOCKET_ERR -1
 #define OK 0
 
-#endif  /* INCLUDE_CONSTANTS_H_ */
+#endif /* INCLUDE_CONSTANTS_H_ */

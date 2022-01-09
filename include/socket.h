@@ -13,6 +13,7 @@ typedef struct url_info {
 
 int parse_url(const char* server_url, url_info_t* url_information);
 void free_url(url_info_t* url_information);
+int set_port(const char* port, url_info_t* url_information);
 int get_socket(const url_info_t* url_information);
 int close_sock(int sockfd);
 

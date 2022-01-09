@@ -115,29 +115,6 @@ int parse_url(const char* server_url, url_info_t* url_information) {
     return parse_regmatch(server_url, matches, url_information);
 }
 
-void free_url(url_info_t* url_information) {
-    if (url_information->hostname != NULL) {
-        free(url_information->hostname);
-        url_information->hostname = NULL;
-    }
-    if (url_information->password != NULL) {
-        free(url_information->password);
-        url_information->password = NULL;
-    }
-    if (url_information->path != NULL) {
-        free(url_information->path);
-        url_information->path = NULL;
-    }
-    if (url_information->port != NULL) {
-        free(url_information->port);
-        url_information->port = NULL;
-    }
-    if (url_information->user != NULL) {
-        free(url_information->user);
-        url_information->user = NULL;
-    }
-}
-
 struct addrinfo* get_addrinfo(const url_info_t* url_information) {
     struct addrinfo hints;
 
@@ -187,7 +164,7 @@ int get_socket(const url_info_t* url_information) {
     freeaddrinfo(results);
 
     if (it == NULL) {
-        fprintf(stderr, "failed to connect");
+        fprintf(stderr, "failed to connect\n");
 
         close_sock(sockfd);
         return SOCKET_ERR;
@@ -203,4 +180,38 @@ int close_sock(int sockfd) {
     }
 
     return OK;
+}
+
+int set_port(const char* port, url_info_t* url_information) {
+    size_t size = strlen(port) + 1;
+    url_information->port = malloc(size * sizeof(char));
+    if (url_information->port == NULL) {
+        return MEMORY_ERR;
+    }
+
+    memcpy(url_information->port, port, size);
+    return OK;
+}
+
+void free_url(url_info_t* url_information) {
+    if (url_information->hostname != NULL) {
+        free(url_information->hostname);
+        url_information->hostname = NULL;
+    }
+    if (url_information->password != NULL) {
+        free(url_information->password);
+        url_information->password = NULL;
+    }
+    if (url_information->path != NULL) {
+        free(url_information->path);
+        url_information->path = NULL;
+    }
+    if (url_information->port != NULL) {
+        free(url_information->port);
+        url_information->port = NULL;
+    }
+    if (url_information->user != NULL) {
+        free(url_information->user);
+        url_information->user = NULL;
+    }
 }

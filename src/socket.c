@@ -2,37 +2,52 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "include/constants.h"
 
-int get_socket(const char* server_url, uint16_t port) {
-    struct sockaddr_in server_addr;
+struct addrinfo* get_addrinfo(const char* server_url) {
+    struct addrinfo hints;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;  // IPV4
+    hints.ai_socktype =
+        SOCK_STREAM;  // STREAM SOCKETS - PACKETS ARRIVE IN ORDER
+    hints.ai_protocol = IPPROTO_TCP;  // USING TCP PROTOCOL
+
+    struct addrinfo* results;
+    int err;
+
+    if ((err = getaddrinfo(server_url, "ftp", &hints, &results)) != 0) {
+        herror("getaddrinfo()");
+        return NULL;
+    }
+
+    return results;
+}
+
+int get_socket(const char* server_url) {
     int sockfd;
 
-    /*server address handling*/
-    bzero(&server_addr, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    /*32 bit Internet address network byte ordered*/
-    server_addr.sin_addr.s_addr = inet_addr(server_url);
-    /*server TCP port must be network byte ordered */
-    server_addr.sin_port = htons(port);
+    struct addrinfo *results = get_addrinfo(server_url), *it;
 
-    /*open a TCP socket*/
-    // USING STREAM SOCKETS TO ENSURE DATA ARRIVES IN ORDER
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket()");
-        return SOCKET_ERR;
+    for (it = results; it != NULL; it = it->ai_next) {
+        // USING STREAM SOCKETS TO ENSURE DATA ARRIVES IN ORDER
+        if ((sockfd = socket(it->ai_family, it->ai_socktype, it->ai_protocol)) < 0) {
+            perror("socket()");
+            continue;
+        }
+
+        if (connect(sockfd, it->ai_addr, it->ai_addrlen) < 0) {
+            perror("connect()");
+            return SOCKET_ERR;
+        }
     }
 
-    /*connect to the server*/
-    if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) <
-        0) {
-        perror("connect()");
-        return SOCKET_ERR;
-    }
+    freeaddrinfo(results);
 
     return sockfd;
 }

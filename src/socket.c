@@ -37,35 +37,24 @@ int regmatch_to_string(const char* server_url, const regmatch_t match,
 //
 int parse_regmatch(const char* server_url, const regmatch_t* matches,
                    url_info_t* url_information) {
-    size_t first_size = matches[1].rm_eo - matches[1].rm_so;
     int err;
 
-    if (first_size == 0) {
-        size_t anon_length = sizeof "anonymous";
-        url_information->user = malloc(anon_length * sizeof(char));
-        if (url_information->user == NULL) {
-            return MEMORY_ERR;
+    if (matches[2].rm_so != -1) {
+        err = regmatch_to_string(server_url, matches[2],
+                                    &url_information->user);
+        if (err < 0) {
+            return err;
         }
-
-        memcpy(url_information->user, "anonymous", anon_length);
-    } else {
-        if (matches[2].rm_so != -1) {
-            err = regmatch_to_string(server_url, matches[2],
-                                     &url_information->user);
-            if (err < 0) {
-                return err;
-            }
-            err = regmatch_to_string(server_url, matches[3],
-                                     &url_information->password);
-            if (err < 0) {
-                return err;
-            }
-        } else {
-            err = regmatch_to_string(server_url, matches[4],
-                                     &url_information->user);
-            if (err < 0) {
-                return err;
-            }
+        err = regmatch_to_string(server_url, matches[3],
+                                    &url_information->password);
+        if (err < 0) {
+            return err;
+        }
+    } else if (matches[4].rm_so != -1) {
+        err = regmatch_to_string(server_url, matches[4],
+                                    &url_information->user);
+        if (err < 0) {
+            return err;
         }
     }
 

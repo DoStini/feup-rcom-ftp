@@ -7,9 +7,10 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <stdlib.h>
 
-#include "include/socket.h"
 #include "include/constants.h"
+#include "include/socket.h"
 
 typedef struct recv_state recv_state_t;
 typedef void recv_state_handler(recv_state_t*, unsigned char);
@@ -145,7 +146,7 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
 }
 
 int ftp_sanity(int sockfd) {
-    int err = send_minimum(sockfd, "\n", sizeof "\n");
+    int err = send_minimum(sockfd, "\n", sizeof "\n" - 1);
     if (err < 0) {
         return err;
     }
@@ -157,7 +158,7 @@ int ftp_sanity(int sockfd) {
         return err;
     }
 
-    if (strncmp(code, FTP_READY, FTP_CODE_LENGTH) != 0) {
+    if (strncmp(code, FTP_CODE_READY, FTP_CODE_LENGTH) != 0) {
         fprintf(stderr, "Server not ready:\n%s\n", message);
         return NOT_READY;
     }
@@ -165,4 +166,76 @@ int ftp_sanity(int sockfd) {
     return OK;
 }
 
-int ftp_login(int sockfd, url_info_t* info) {}
+int ftp_anon_login(int sockfd, url_info_t* info) {
+    char* pass = malloc(FTP_MESSAGE_LENGTH * sizeof(char));
+    if (pass == NULL) {
+        perror("login");
+        return LOGIN_ERR;
+    }
+
+    printf("Please input your email address (max %d): ", FTP_MESSAGE_LENGTH);
+    char* res = fgets(pass, FTP_MESSAGE_LENGTH, stdin);
+    if (res == NULL) {
+        perror("fgets()");
+        return LOGIN_ERR;
+    }
+    pass[strcspn(pass, "\r\n")] = 0;
+
+    info->password = pass;
+    info->user = malloc(sizeof FTP_USR_ANON);
+    if (info->user == NULL) {
+        perror("login");
+        return LOGIN_ERR;
+    }
+    memcpy(info->user, FTP_USR_ANON, sizeof FTP_USR_ANON);
+
+    return OK;
+}
+
+int ftp_login(int sockfd, url_info_t* info) {
+    int err = 0;
+    char code[FTP_CODE_LENGTH];
+    char message[FTP_MESSAGE_LENGTH];
+
+    if (info->user == NULL) {
+        err = ftp_anon_login(sockfd, info);
+        if (err < 0) {
+            return err;
+        }
+    }
+
+    size_t total = strlen(FTP_CMD_USER) + strlen(info->user) + 2;
+    char* user = malloc(total * sizeof(char));
+    if (user == NULL) {
+        perror("login");
+        return LOGIN_ERR;
+    }
+
+    err = snprintf(user, total, "%s%s\n", FTP_CMD_USER, info->user);
+    if (err < 0) {
+        free(user);
+        return err;
+    }
+
+    err = send_minimum(sockfd, user, total);
+    if (err < 0) {
+        free(user);
+        return err;
+    }
+
+    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    if (err < 0) {
+        free(user);
+        return err;
+    }
+
+    if (strncmp(code, FTP_CODE_LOGIN, FTP_CODE_LENGTH) != 0) {
+        free(user);
+        fprintf(stderr, "Couldn't authenticate:\n%s\n", message);
+        return LOGIN_ERR;
+    }
+
+    free(user);
+
+    return OK;
+}

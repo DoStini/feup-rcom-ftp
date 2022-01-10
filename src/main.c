@@ -39,6 +39,13 @@ int main(int argc, char* argv[], char* envp[]) {
         exit(-1);
     }
 
+    err = ftp_login(sockfd, &info);
+    if (err < 0) {
+        free_url(&info);
+        close_sock(sockfd);
+        exit(-1);
+    }
+
     // int bytes = recv(sockfd, buf, 1000, 0);
     // buf[bytes] = 0;
     // printf("%s <- end read", buf);

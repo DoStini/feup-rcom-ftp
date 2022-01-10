@@ -4,6 +4,7 @@
 #define SERVER_CONTROL_PORT 21
 #define SERVER_DATA_PORT 20
 
+#define LOGIN_ERR -6
 #define NOT_READY -5
 #define SEND_ERR -4
 #define RECV_ERR -4

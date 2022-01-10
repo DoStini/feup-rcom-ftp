@@ -16,11 +16,11 @@ typedef enum recv_state {
     END_RECV
 } recv_state_t;
 
-int recv_minimum(int sockfd, char* buffer, size_t buff_size, size_t min) {
+int recv_minimum(int sockfd, char* buffer, size_t buff_size) {
     int received;
     size_t total = 0;
 
-    while (total < min) {
+    while (total == 0) {
         received = recv(sockfd, buffer + total, buff_size - total, 0);
         if (received < 0 && errno != EINTR) {
             return RECV_ERR;
@@ -37,40 +37,52 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
     char code[FTP_CODE_LENGTH];
     char end_code[FTP_CODE_LENGTH];
 
-    int received = recv_minimum(sockfd, buf, RECV_LENGTH, FTP_CODE_LENGTH + 1);
-    if (received < 0) {
-        return received;
-    }
-
     recv_state_t state = START_RECV;
-    int total;
-    bool copy;
+    int total = 0, received;
+    bool copy = string != NULL;
     size_t start = 0;
     size_t code_acc = 0;
 
-    if (string != NULL) {
-        total = snprintf(string, size, "%s", buf);
-        copy = total < size;
-    } else {
-        total = 0;
-        copy = false;
-    }
-
-    while (1) {
+    while (state != END_RECV) {
         start = 0;
+        received = recv_minimum(sockfd, buf, RECV_LENGTH);
+        if (received < 0) {
+            return received;
+        }
+
+        if (copy) {
+            if (total + received > size) {
+                memcpy(string + total, buf, size - total);
+                copy = false;
+
+                total = size;
+            } else {
+                memcpy(string + total, buf, received);
+
+                total += received;
+            }
+        }
 
         while (start < received && state != END_RECV) {
             switch (state) {
                 case START_RECV:
-                    memcpy(code, buf, FTP_CODE_LENGTH);
-
-                    if (buf[FTP_CODE_LENGTH] == '-') {
-                        state = MULTI_LINE;
-                    } else if (buf[FTP_CODE_LENGTH] == ' ') {
-                        state = READ_ALL;
+                    if (code_acc == FTP_CODE_LENGTH) {
+                        if (buf[start] == '-') {
+                            state = MULTI_LINE;
+                        } else if (buf[start] == ' ') {
+                            state = READ_ALL;
+                        } else {
+                            code_acc = 0;
+                        }
+                    } else {
+                        if (isdigit(buf[start])) {
+                            code[code_acc] = buf[start];
+                            code_acc++;
+                        } else {
+                            code_acc = 0;
+                        }
                     }
 
-                    start += 4;
                     break;
                 case MULTI_LINE:
                     if (buf[start] == '\n') {
@@ -79,7 +91,6 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
                         code_acc = 0;
                     }
 
-                    start++;
                     break;
                 case MULTI_LINE_CODE:
                     if (code_acc == FTP_CODE_LENGTH) {
@@ -98,7 +109,6 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
                         }
                     }
 
-                    start++;
                     break;
                 case READ_ALL:
                 default:
@@ -106,31 +116,12 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
                         state = END_RECV;
                     }
 
-                    start++;
                     break;
                 case END_RECV:
                     break;
             }
-        }
 
-        if (state == END_RECV) break;
-
-        received = recv_minimum(sockfd, buf, RECV_LENGTH, 1);
-        if (received < 0) {
-            return received;
-        }
-
-        if (copy) {
-            if (total + received > size) {
-                memcpy(string + total, buf, size - total);
-                copy = false;
-
-                total = size;
-            } else {
-                memcpy(string + total, buf, received);
-
-                total += received;
-            }
+            start++;
         }
     }
 

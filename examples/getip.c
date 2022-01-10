@@ -7,10 +7,11 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string.h>
 
 int main(int argc, char *argv[])
 {
-    struct hostent *h;
+    int h;
 
     if (argc != 2)
     {
@@ -32,14 +33,32 @@ int main(int argc, char *argv[])
 
     #define h_addr h_addr_list[0]	The first address in h_addr_list.
 */
-    if ((h = gethostbyname(argv[1])) == NULL)
+    struct addrinfo hints;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    struct addrinfo* results, *it;
+
+    if ((h = getaddrinfo(argv[1], "ftp", &hints, &results)) != 0)
     {
-        herror("gethostbyname()");
+        herror("getaddrinfo()");
         exit(-1);
     }
 
-    printf("Host name  : %s\n", h->h_name);
-    printf("IP Address : %s\n", inet_ntoa(*((struct in_addr *)h->h_addr)));
+    for(it = results; it != NULL; it = it->ai_next) {
+        struct sockaddr_in *ipv4 = (struct sockaddr_in *)it->ai_addr;
+        char ip[INET_ADDRSTRLEN];
+
+        inet_ntop(AF_INET, &(ipv4->sin_addr), ip, INET_ADDRSTRLEN);
+
+        printf("Host name  : %s\n", argv[1]);
+        printf("IP Address : %s\n", ip);
+        printf("PORT: %d\n", ntohs(ipv4->sin_port));
+    }
+
+    freeaddrinfo(results);
 
     return 0;
 }

@@ -4,6 +4,10 @@
 #define SERVER_CONTROL_PORT 21
 #define SERVER_DATA_PORT 20
 
+#define RECV_LENGTH 512
+#define FTP_CODE_LENGTH 3
+
+#define RECV_ERR -4
 #define MEMORY_ERR -3
 #define ADDR_REGEX_ERR -2
 #define SOCKET_ERR -1

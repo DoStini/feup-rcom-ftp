@@ -1,4 +1,5 @@
 #include <sys/socket.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -8,13 +9,69 @@
 #include "include/socket.h"
 #include "include/constants.h"
 
-typedef enum recv_state {
-    START_RECV,
-    MULTI_LINE,
-    MULTI_LINE_CODE,
-    READ_ALL,
-    END_RECV
+typedef struct recv_state recv_state_t;
+typedef void recv_state_handler(recv_state_t*, unsigned char);
+
+typedef struct recv_state {
+    char code[FTP_CODE_LENGTH];
+    uint8_t code_acc;
+    recv_state_handler* handler;
 } recv_state_t;
+
+recv_state_handler start_recv, multi_line, multi_line_code, read_all, end_recv;
+
+void start_recv(recv_state_t* state, unsigned char ch) {
+    if (state->code_acc == FTP_CODE_LENGTH) {
+        if (ch == '-') {
+            state->handler = multi_line;
+        } else if (ch == ' ') {
+            state->handler = read_all;
+        } else {
+            state->code_acc = 0;
+        }
+    } else {
+        if (isdigit(ch)) {
+            state->code[state->code_acc] = ch;
+            state->code_acc++;
+        } else {
+            state->code_acc = 0;
+        }
+    }
+}
+
+void multi_line(recv_state_t* state, unsigned char ch) {
+    if (ch == '\n') {
+        state->handler = multi_line_code;
+
+        state->code_acc = 0;
+    }
+}
+
+void multi_line_code(recv_state_t* state, unsigned char ch) {
+    if (state->code_acc == FTP_CODE_LENGTH) {
+        if (ch == ' ') {
+            state->handler = read_all;
+        } else {
+            state->handler = multi_line;
+        }
+    } else {
+        if (isdigit(ch) && state->code[state->code_acc] == ch) {
+            state->code_acc++;
+        } else {
+            state->handler = multi_line;
+        }
+    }
+}
+
+void read_all(recv_state_t* state, unsigned char ch) {
+    if (ch == '\n') {
+        state->handler = end_recv;
+    }
+}
+
+void end_recv(recv_state_t* state, unsigned char ch) {
+    return;
+}
 
 int recv_minimum(int sockfd, char* buffer, size_t buff_size) {
     int received;
@@ -34,16 +91,15 @@ int recv_minimum(int sockfd, char* buffer, size_t buff_size) {
 
 int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
     char buf[RECV_LENGTH];
-    char code[FTP_CODE_LENGTH];
-    char end_code[FTP_CODE_LENGTH];
 
-    recv_state_t state = START_RECV;
+    recv_state_t state;
+    state.handler = start_recv;
+    state.code_acc = 0;
     int total = 0, received;
     bool copy = string != NULL;
     size_t start = 0;
-    size_t code_acc = 0;
 
-    while (state != END_RECV) {
+    while (state.handler != end_recv) {
         start = 0;
         received = recv_minimum(sockfd, buf, RECV_LENGTH);
         if (received < 0) {
@@ -63,63 +119,8 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
             }
         }
 
-        while (start < received && state != END_RECV) {
-            switch (state) {
-                case START_RECV:
-                    if (code_acc == FTP_CODE_LENGTH) {
-                        if (buf[start] == '-') {
-                            state = MULTI_LINE;
-                        } else if (buf[start] == ' ') {
-                            state = READ_ALL;
-                        } else {
-                            code_acc = 0;
-                        }
-                    } else {
-                        if (isdigit(buf[start])) {
-                            code[code_acc] = buf[start];
-                            code_acc++;
-                        } else {
-                            code_acc = 0;
-                        }
-                    }
-
-                    break;
-                case MULTI_LINE:
-                    if (buf[start] == '\n') {
-                        state = MULTI_LINE_CODE;
-
-                        code_acc = 0;
-                    }
-
-                    break;
-                case MULTI_LINE_CODE:
-                    if (code_acc == FTP_CODE_LENGTH) {
-                        if (buf[start] == ' ' &&
-                            strncmp(code, end_code, FTP_CODE_LENGTH) == 0) {
-                            state = READ_ALL;
-                        } else {
-                            state = MULTI_LINE;
-                        }
-                    } else {
-                        if (isdigit(buf[start])) {
-                            end_code[code_acc] = buf[start];
-                            code_acc++;
-                        } else {
-                            state = MULTI_LINE;
-                        }
-                    }
-
-                    break;
-                case READ_ALL:
-                default:
-                    if (buf[start] == '\n') {
-                        state = END_RECV;
-                    }
-
-                    break;
-                case END_RECV:
-                    break;
-            }
+        while (start < received && state.handler != end_recv) {
+            state.handler(&state, buf[start]);
 
             start++;
         }
@@ -128,7 +129,7 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
     if (string != NULL) {
         string[total] = 0;
     }
-    memcpy(out_code, code, FTP_CODE_LENGTH);
+    memcpy(out_code, state.code, FTP_CODE_LENGTH);
 
     return OK;
 }

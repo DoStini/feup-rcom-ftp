@@ -32,20 +32,12 @@ int main(int argc, char* argv[], char* envp[]) {
         exit(sockfd);
     }
 
-    send(sockfd, "\n", strlen("\n"), 0);
-
-    char buf[1002];
-    char code[4];
-
-    err = ftp_recv(sockfd, code, buf, 1002);
+    err = ftp_sanity(sockfd);
     if (err < 0) {
         free_url(&info);
         close_sock(sockfd);
         exit(-1);
     }
-    code[3] = 0;
-
-    printf("%s\nCODE: %s\n", buf, code);
 
     // int bytes = recv(sockfd, buf, 1000, 0);
     // buf[bytes] = 0;

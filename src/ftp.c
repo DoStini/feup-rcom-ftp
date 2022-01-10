@@ -1,3 +1,5 @@
+#include "include/ftp.h"
+
 #include <sys/socket.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -69,20 +71,28 @@ void read_all(recv_state_t* state, unsigned char ch) {
     }
 }
 
-void end_recv(recv_state_t* state, unsigned char ch) {
-    return;
-}
+void end_recv(recv_state_t* state, unsigned char ch) { return; }
 
 int recv_minimum(int sockfd, char* buffer, size_t buff_size) {
-    int received;
     size_t total = 0;
 
-    while (total == 0) {
-        received = recv(sockfd, buffer + total, buff_size - total, 0);
-        if (received < 0 && errno != EINTR) {
+    while (total <= 0) {
+        total = recv(sockfd, buffer, buff_size, 0);
+        if (total < 0 && errno != EINTR) {
             return RECV_ERR;
-        } else {
-            total += received;
+        }
+    }
+
+    return total;
+}
+
+int send_minimum(int sockfd, char* buffer, size_t buff_size) {
+    size_t total = 0;
+
+    while (total <= 0) {
+        total = send(sockfd, buffer, buff_size, 0);
+        if (total < 0 && errno != EINTR) {
+            return SEND_ERR;
         }
     }
 
@@ -130,6 +140,27 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
         string[total] = 0;
     }
     memcpy(out_code, state.code, FTP_CODE_LENGTH);
+
+    return OK;
+}
+
+int ftp_sanity(int sockfd) {
+    int err = send_minimum(sockfd, "\n", sizeof "\n");
+    if (err < 0) {
+        return err;
+    }
+    char code[FTP_CODE_LENGTH];
+    char message[FTP_MESSAGE_LENGTH];
+
+    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    if (err < 0) {
+        return err;
+    }
+
+    if (strncmp(code, FTP_READY, FTP_CODE_LENGTH) != 0) {
+        fprintf(stderr, "Server not ready:\n%s\n", message);
+        return NOT_READY;
+    }
 
     return OK;
 }

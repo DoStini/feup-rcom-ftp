@@ -37,7 +37,6 @@ int regmatch_to_string(const char* server_url, const regmatch_t match,
 //
 int parse_regmatch(const char* server_url, const regmatch_t* matches,
                    url_info_t* url_information) {
-    memset(url_information, 0, sizeof(url_info_t));
     size_t first_size = matches[1].rm_eo - matches[1].rm_so;
     int err;
 
@@ -88,6 +87,7 @@ int parse_url(const char* server_url, url_info_t* url_information) {
     const char* pattern =
         "ftp://(([^/@:]+):([^/@:]*)@|([^/@:]*)@|)([^/@:]+)/(.+)";
     char error_message[200];
+    memset(url_information, 0, sizeof(url_info_t));
 
     int err = regcomp(&preg, pattern, REG_EXTENDED);
     if (err != 0) {
@@ -103,7 +103,7 @@ int parse_url(const char* server_url, url_info_t* url_information) {
     if (err != 0) {
         fprintf(stderr,
                 "The given URL is not valid, it must follow the following "
-                "format:\nftp://[<user>[:[<password>]]@]<host>/<url-path>\n"
+                "format:\nftp://[<user>[:<password>]@]<host>/<url-path>\n"
                 "Make sure the user, password and host don't include '@', '/' "
                 "or ':'\n");
 
@@ -147,7 +147,6 @@ int get_socket(const url_info_t* url_information) {
     for (it = results; it != NULL; it = it->ai_next) {
         // USING STREAM SOCKETS TO ENSURE DATA ARRIVES IN ORDER
         if ((sockfd = socket(it->ai_family, it->ai_socktype, 0)) < 0) {
-            close_sock(sockfd);
             perror("socket()");
             continue;
         }
@@ -166,7 +165,6 @@ int get_socket(const url_info_t* url_information) {
     if (it == NULL) {
         fprintf(stderr, "failed to connect\n");
 
-        close_sock(sockfd);
         return SOCKET_ERR;
     }
 

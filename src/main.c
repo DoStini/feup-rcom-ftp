@@ -14,12 +14,21 @@ int main(int argc, char* argv[], char* envp[]) {
     }
     url_info_t info;
 
-    parse_url(argv[1], &info);
-    set_port("ftp", &info);
+    int err = parse_url(argv[1], &info);
+    if (err < 0) {
+        free_url(&info);
+        exit(err);
+    }
+    err = set_port("ftp", &info);
+    if (err < 0) {
+        free_url(&info);
+        exit(err);
+    }
 
     int sockfd = get_socket(&info);
     if (sockfd < 0) {
-        return sockfd;
+        free_url(&info);
+        exit(sockfd);
     }
 
     send(sockfd, "\n", strlen("\n"), 0);

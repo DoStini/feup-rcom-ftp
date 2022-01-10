@@ -87,14 +87,17 @@ int recv_minimum(int sockfd, char* buffer, size_t buff_size) {
     return total;
 }
 
-int send_minimum(int sockfd, char* buffer, size_t buff_size) {
+int send_all(int sockfd, char* buffer, size_t buff_size) {
+    int err;
     size_t total = 0;
 
-    while (total <= 0) {
-        total = send(sockfd, buffer, buff_size, 0);
-        if (total < 0 && errno != EINTR) {
+    while (total < buff_size) {
+        err = send(sockfd, buffer + total, buff_size - total, 0);
+        if (err < 0 && errno != EINTR) {
             return SEND_ERR;
         }
+
+        total += err;
     }
 
     return total;
@@ -146,7 +149,7 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
 }
 
 int ftp_sanity(int sockfd) {
-    int err = send_minimum(sockfd, "\n", sizeof "\n" - 1);
+    int err = send_all(sockfd, "\n", sizeof "\n" - 1);
     if (err < 0) {
         return err;
     }
@@ -227,7 +230,7 @@ int ftp_login(int sockfd, url_info_t* info) {
         return err;
     }
 
-    err = send_minimum(sockfd, user, total-1);
+    err = send_all(sockfd, user, total-1);
     if (err < 0) {
         free(user);
         return err;
@@ -268,7 +271,7 @@ int ftp_login(int sockfd, url_info_t* info) {
             return err;
         }
 
-        err = send_minimum(sockfd, auth, total-1);
+        err = send_all(sockfd, auth, total-1);
         if (err < 0) {
             free(auth);
             return err;

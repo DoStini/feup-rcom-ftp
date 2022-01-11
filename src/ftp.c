@@ -1,6 +1,7 @@
 #include "include/ftp.h"
 
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
@@ -12,6 +13,7 @@
 
 #include "include/constants.h"
 #include "include/regex.h"
+#include "include/socket.h"
 
 typedef struct recv_state recv_state_t;
 typedef void recv_state_handler(recv_state_t*, unsigned char);
@@ -150,14 +152,14 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
 }
 
 int ftp_send(int sockfd, char* ftp_code, char* param) {
-    size_t total = strlen(ftp_code) + strlen(param) + 2;
+    size_t total = strlen(ftp_code) + strlen(param) + 3;
     char* cmd = malloc(total * sizeof(char));
     if (cmd == NULL) {
         perror("login");
         return LOGIN_ERR;
     }
 
-    int err = snprintf(cmd, total, "%s%s\n", ftp_code, param);
+    int err = snprintf(cmd, total, "%s%s\r\n", ftp_code, param);
     if (err < 0) {
         free(cmd);
         return err;
@@ -174,14 +176,10 @@ int ftp_send(int sockfd, char* ftp_code, char* param) {
 }
 
 int ftp_sanity(int sockfd) {
-    int err = send_all(sockfd, "\n", sizeof "\n" - 1);
-    if (err < 0) {
-        return err;
-    }
     char code[FTP_CODE_LENGTH];
     char message[FTP_MESSAGE_LENGTH];
 
-    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    int err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
     if (err < 0) {
         return err;
     }
@@ -190,26 +188,6 @@ int ftp_sanity(int sockfd) {
         fprintf(stderr, "Server not ready:\n%s\n", message);
         return NOT_READY;
     }
-
-    return OK;
-}
-
-int get_pass(const char* message, url_info_t* info) {
-    info->password = malloc(FTP_MESSAGE_LENGTH * sizeof(char));
-    if (info->password == NULL) {
-        perror("login");
-        return LOGIN_ERR;
-    }
-
-    printf("%s (max %d): ", message, FTP_MESSAGE_LENGTH);
-    char* res = fgets(info->password, FTP_MESSAGE_LENGTH, stdin);
-    if (res == NULL) {
-        free(info->password);
-        info->password = NULL;
-        perror("fgets()");
-        return LOGIN_ERR;
-    }
-    info->password[strcspn(info->password, "\r\n")] = 0;
 
     return OK;
 }
@@ -327,7 +305,7 @@ int parse_regmatch_string(const char* original, const regmatch_t match,
     return OK;
 }
 
-int ftp_passive(int sockfd, url_info_t* info) {
+int ftp_passive(int sockfd) {
     int err = 0;
     char code[FTP_CODE_LENGTH];
     char message[FTP_MESSAGE_LENGTH];
@@ -340,6 +318,11 @@ int ftp_passive(int sockfd, url_info_t* info) {
     err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
     if (err < 0) {
         return err;
+    }
+
+    if (strncmp(code, FTP_CODE_PASV, FTP_CODE_LENGTH) != 0) {
+        fprintf(stderr, "Couldn't get address and port:\n%s\n", message);
+        return PASV_ERR;
     }
 
     regex_t preg;
@@ -368,20 +351,32 @@ int ftp_passive(int sockfd, url_info_t* info) {
         return ADDR_REGEX_ERR;
     }
 
-    int address = 0;
+    uint32_t address = 0;
+    uint32_t mults[4] = {16777216, 65536, 256, 1};
 
-    printf("%s\n\n", message);
-
-    for (int i = 0; i < 4; i++) {
+    for (uint32_t i = 0; i < 4; i++) {
         char* temp;
         parse_regmatch_string(message, matches[i + 1], &temp);
+
         int match = atoi(temp);
-        printf("mathc: %d %x\n", match, match);
-        address += (match << (3 - i));
+        address += match * mults[i];
+
         free(temp);
     }
 
-    printf("address: %x", address);
+    uint16_t port = 0;
+
+    for (uint16_t i = 0; i < 2; i++) {
+        char* temp;
+        parse_regmatch_string(message, matches[i + 5], &temp);
+
+        int match = atoi(temp);
+        port += match * mults[i + 2];
+
+        free(temp);
+    }
 
     regfree(&preg);
+
+    return open_data_connection(sockfd, address, port);
 }

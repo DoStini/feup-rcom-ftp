@@ -1,9 +1,11 @@
 #include "include/socket.h"
 
 #include <stdio.h>
+#include <sys/cdefs.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
 #include <netdb.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,20 +14,6 @@
 
 #include "include/constants.h"
 #include "include/regex.h"
-
-// int regmatch_to_string(const char* server_url, const regmatch_t match,
-//                        char** string) {
-//     size_t size = match.rm_eo - match.rm_so;
-//     *string = malloc((size + 1) * sizeof(char));
-//     if ((*string) == NULL) {
-//         return MEMORY_ERR;
-//     }
-
-//     memcpy(*string, &server_url[match.rm_so], size);
-//     (*string)[size] = '\0';
-
-//     return OK;
-// }
 
 //  match 0 -> full match
 //      match 1 -> credentials: -> if null then user is "anonymous"
@@ -41,19 +29,19 @@ int parse_regmatch(const char* server_url, const regmatch_t* matches,
     int err;
 
     if (matches[2].rm_so != -1) {
-        err = regmatch_to_string(server_url, matches[2],
-                                    &url_information->user);
+        err =
+            regmatch_to_string(server_url, matches[2], &url_information->user);
         if (err < 0) {
             return err;
         }
         err = regmatch_to_string(server_url, matches[3],
-                                    &url_information->password);
+                                 &url_information->password);
         if (err < 0) {
             return err;
         }
     } else if (matches[4].rm_so != -1) {
-        err = regmatch_to_string(server_url, matches[4],
-                                    &url_information->user);
+        err =
+            regmatch_to_string(server_url, matches[4], &url_information->user);
         if (err < 0) {
             return err;
         }
@@ -181,6 +169,26 @@ int set_port(const char* port, url_info_t* url_information) {
     return OK;
 }
 
+int get_pass(const char* message, url_info_t* info) {
+    info->password = malloc(MESSAGE_LENGTH * sizeof(char));
+    if (info->password == NULL) {
+        perror("login");
+        return LOGIN_ERR;
+    }
+
+    printf("%s (max %d): ", message, MESSAGE_LENGTH);
+    char* res = fgets(info->password, MESSAGE_LENGTH, stdin);
+    if (res == NULL) {
+        free(info->password);
+        info->password = NULL;
+        perror("fgets()");
+        return LOGIN_ERR;
+    }
+    info->password[strcspn(info->password, "\r\n")] = 0;
+
+    return OK;
+}
+
 void free_url(url_info_t* url_information) {
     if (url_information->hostname != NULL) {
         free(url_information->hostname);
@@ -202,4 +210,26 @@ void free_url(url_info_t* url_information) {
         free(url_information->user);
         url_information->user = NULL;
     }
+}
+
+int open_data_connection(int sockfd, uint32_t address, uint16_t port) {
+    struct sockaddr_in server_addr;
+
+    memset(&server_addr, 0, sizeof(struct sockaddr_in));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(address);
+    server_addr.sin_port = htons(port);
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket()");
+        return SOCKET_ERR;
+    }
+
+    if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) <
+        0) {
+        perror("connect()");
+        return SOCKET_ERR;
+    }
+
+    return sockfd;
 }

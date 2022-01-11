@@ -49,7 +49,11 @@ int main(int argc, char* argv[], char* envp[]) {
 
     free_url(&info);
 
-    ftp_passive(sockfd, &info);
+    err = ftp_passive(sockfd);
+    if (err < 0) {
+        close_sock(sockfd);
+        exit(-1);
+    }
 
     err = ftp_quit(sockfd);
     if (err < 0) {

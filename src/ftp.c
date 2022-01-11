@@ -8,9 +8,10 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <regex.h>
 
 #include "include/constants.h"
-#include "include/socket.h"
+#include "include/regex.h"
 
 typedef struct recv_state recv_state_t;
 typedef void recv_state_handler(recv_state_t*, unsigned char);
@@ -148,6 +149,30 @@ int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
     return OK;
 }
 
+int ftp_send(int sockfd, char* ftp_code, char* param) {
+    size_t total = strlen(ftp_code) + strlen(param) + 2;
+    char* cmd = malloc(total * sizeof(char));
+    if (cmd == NULL) {
+        perror("login");
+        return LOGIN_ERR;
+    }
+
+    int err = snprintf(cmd, total, "%s%s\n", ftp_code, param);
+    if (err < 0) {
+        free(cmd);
+        return err;
+    }
+
+    err = send_all(sockfd, cmd, total - 1);
+    if (err < 0) {
+        free(cmd);
+        return err;
+    }
+
+    free(cmd);
+    return OK;
+}
+
 int ftp_sanity(int sockfd) {
     int err = send_all(sockfd, "\n", sizeof "\n" - 1);
     if (err < 0) {
@@ -217,32 +242,15 @@ int ftp_login(int sockfd, url_info_t* info) {
         }
     }
 
-    size_t total = strlen(FTP_CMD_USER) + strlen(info->user) + 2;
-    char* user = malloc(total * sizeof(char));
-    if (user == NULL) {
-        perror("login");
-        return LOGIN_ERR;
-    }
-
-    err = snprintf(user, total, "%s%s\n", FTP_CMD_USER, info->user);
+    err = ftp_send(sockfd, FTP_CMD_USER, info->user);
     if (err < 0) {
-        free(user);
-        return err;
-    }
-
-    err = send_all(sockfd, user, total-1);
-    if (err < 0) {
-        free(user);
         return err;
     }
 
     err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
     if (err < 0) {
-        free(user);
         return err;
     }
-
-    free(user);
 
     if (strncmp(code, FTP_CODE_LOGIN, FTP_CODE_LENGTH) == 0) {
         printf("Success Logging in!\n");
@@ -258,32 +266,15 @@ int ftp_login(int sockfd, url_info_t* info) {
             }
         }
 
-        total = strlen(FTP_CMD_PASS) + strlen(info->password) + 2;
-        char* auth = malloc(total * sizeof(char));
-        if (auth == NULL) {
-            perror("login");
-            return LOGIN_ERR;
-        }
-
-        err = snprintf(auth, total, "%s%s\n", FTP_CMD_PASS, info->password);
+        err = ftp_send(sockfd, FTP_CMD_PASS, info->password);
         if (err < 0) {
-            free(auth);
-            return err;
-        }
-
-        err = send_all(sockfd, auth, total-1);
-        if (err < 0) {
-            free(auth);
             return err;
         }
 
         err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
         if (err < 0) {
-            free(auth);
             return err;
         }
-
-        free(auth);
 
         if (strncmp(code, FTP_CODE_LOGIN, FTP_CODE_LENGTH) == 0) {
             printf("Success Logging in!\n");
@@ -298,4 +289,91 @@ int ftp_login(int sockfd, url_info_t* info) {
     }
 
     return OK;
+}
+
+int ftp_quit(int sockfd) {
+    char code[FTP_CODE_LENGTH];
+    char message[FTP_MESSAGE_LENGTH];
+
+    int err = ftp_send(sockfd, FTP_CMD_QUIT, "");
+    if (err < 0) {
+        return err;
+    }
+
+    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    if (err < 0) {
+        return err;
+    }
+
+    if (strncmp(code, FTP_CODE_QUIT, FTP_CODE_LENGTH) == 0) {
+        printf("Logged out.\n");
+        return OK;
+    } else {
+        fprintf(stderr, "Couldn't authenticate:\n%s\n", message);
+        return LOGIN_ERR;
+    }
+}
+
+int parse_regmatch_string(const char* original, const regmatch_t match,
+                           char** result) {
+    int err;
+
+    if (match.rm_so != -1) {
+        err =
+            regmatch_to_string(original, match, result);
+        if (err < 0) {
+            return err;
+        }
+
+    }
+    return OK;
+}
+
+int ftp_passive(int sockfd, url_info_t* info) {
+    regex_t preg;
+
+    const char* pattern =
+        "([1-9]{1,3}),([1-9]{1,3}),([1-9]{1,3}),([1-9]{1,3}),([1-9]{1,3}),([1-"
+        "9]{1,3})";
+
+    const char* input = "asdasdasd sadf asd fsadf sadf (127,123,123,123,234,234)";
+
+    char error_message[200];
+
+    int err = regcomp(&preg, pattern, REG_EXTENDED);
+    if (err != 0) {
+        regerror(err, &preg, error_message, sizeof(error_message));
+        fprintf(stderr, "%s\n", error_message);
+
+        regfree(&preg);
+        return ADDR_REGEX_ERR;
+    }
+
+    regmatch_t matches[7];
+    err = regexec(&preg, input, 7,
+                  matches, 0);
+    if (err != 0) {
+        fprintf(stderr,
+                "The given URL is not valid, it must follow the following "
+                "format:\nftp://[<user>[:<password>]@]<host>/<url-path>\n"
+                "Make sure the user, password and host don't include '@', '/' "
+                "or ':'\n");
+
+        regfree(&preg);
+        return ADDR_REGEX_ERR;
+    }
+
+    int address = 0;
+
+    for (int i = 0; i < 4; i++) {
+        char * temp;
+        parse_regmatch_string(input, matches[i + 1], &temp);
+        int match = atoi(temp);
+        address += match;
+        free(temp);
+    }
+
+    printf("address: %d", address);
+
+    regfree(&preg);
 }

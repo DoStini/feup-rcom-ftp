@@ -11,20 +11,21 @@
 #include <regex.h>
 
 #include "include/constants.h"
+#include "include/regex.h"
 
-int regmatch_to_string(const char* server_url, const regmatch_t match,
-                       char** string) {
-    size_t size = match.rm_eo - match.rm_so;
-    *string = malloc((size + 1) * sizeof(char));
-    if ((*string) == NULL) {
-        return MEMORY_ERR;
-    }
+// int regmatch_to_string(const char* server_url, const regmatch_t match,
+//                        char** string) {
+//     size_t size = match.rm_eo - match.rm_so;
+//     *string = malloc((size + 1) * sizeof(char));
+//     if ((*string) == NULL) {
+//         return MEMORY_ERR;
+//     }
 
-    memcpy(*string, &server_url[match.rm_so], size);
-    (*string)[size] = '\0';
+//     memcpy(*string, &server_url[match.rm_so], size);
+//     (*string)[size] = '\0';
 
-    return OK;
-}
+//     return OK;
+// }
 
 //  match 0 -> full match
 //      match 1 -> credentials: -> if null then user is "anonymous"

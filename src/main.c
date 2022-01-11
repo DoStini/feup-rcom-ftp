@@ -20,6 +20,7 @@ int main(int argc, char* argv[], char* envp[]) {
         free_url(&info);
         exit(err);
     }
+
     err = set_port("ftp", &info);
     if (err < 0) {
         free_url(&info);
@@ -48,6 +49,8 @@ int main(int argc, char* argv[], char* envp[]) {
 
     free_url(&info);
 
+    ftp_passive(sockfd, &info);
+
     err = ftp_quit(sockfd);
     if (err < 0) {
         close_sock(sockfd);
@@ -64,6 +67,6 @@ int main(int argc, char* argv[], char* envp[]) {
     // // buf[bytes] = 0;
     // // printf("%s\n", buf);
 
-    free_url(&info);
-    return close_sock(sockfd);
+    // free_url(&info);
+    // return close_sock(sockfd);
 }

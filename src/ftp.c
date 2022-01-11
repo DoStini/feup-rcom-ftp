@@ -315,32 +315,42 @@ int ftp_quit(int sockfd) {
 }
 
 int parse_regmatch_string(const char* original, const regmatch_t match,
-                           char** result) {
+                          char** result) {
     int err;
 
     if (match.rm_so != -1) {
-        err =
-            regmatch_to_string(original, match, result);
+        err = regmatch_to_string(original, match, result);
         if (err < 0) {
             return err;
         }
-
     }
     return OK;
 }
 
 int ftp_passive(int sockfd, url_info_t* info) {
+    int err = 0;
+    char code[FTP_CODE_LENGTH];
+    char message[FTP_MESSAGE_LENGTH];
+
+    err = ftp_send(sockfd, FTP_CMD_PASV, "");
+    if (err < 0) {
+        return err;
+    }
+
+    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    if (err < 0) {
+        return err;
+    }
+
     regex_t preg;
 
     const char* pattern =
-        "([1-9]{1,3}),([1-9]{1,3}),([1-9]{1,3}),([1-9]{1,3}),([1-9]{1,3}),([1-"
+        "([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-"
         "9]{1,3})";
-
-    const char* input = "asdasdasd sadf asd fsadf sadf (127,123,123,123,234,234)";
 
     char error_message[200];
 
-    int err = regcomp(&preg, pattern, REG_EXTENDED);
+    err = regcomp(&preg, pattern, REG_EXTENDED);
     if (err != 0) {
         regerror(err, &preg, error_message, sizeof(error_message));
         fprintf(stderr, "%s\n", error_message);
@@ -350,14 +360,9 @@ int ftp_passive(int sockfd, url_info_t* info) {
     }
 
     regmatch_t matches[7];
-    err = regexec(&preg, input, 7,
-                  matches, 0);
+    err = regexec(&preg, message, 7, matches, 0);
     if (err != 0) {
-        fprintf(stderr,
-                "The given URL is not valid, it must follow the following "
-                "format:\nftp://[<user>[:<password>]@]<host>/<url-path>\n"
-                "Make sure the user, password and host don't include '@', '/' "
-                "or ':'\n");
+        fprintf(stderr, "Passive mode return message contains an error");
 
         regfree(&preg);
         return ADDR_REGEX_ERR;
@@ -365,15 +370,18 @@ int ftp_passive(int sockfd, url_info_t* info) {
 
     int address = 0;
 
+    printf("%s\n\n", message);
+
     for (int i = 0; i < 4; i++) {
-        char * temp;
-        parse_regmatch_string(input, matches[i + 1], &temp);
+        char* temp;
+        parse_regmatch_string(message, matches[i + 1], &temp);
         int match = atoi(temp);
-        address += match;
+        printf("mathc: %d %x\n", match, match);
+        address += (match << (3 - i));
         free(temp);
     }
 
-    printf("address: %d", address);
+    printf("address: %x", address);
 
     regfree(&preg);
 }

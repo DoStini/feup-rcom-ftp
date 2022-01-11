@@ -17,6 +17,7 @@
 #define FTP_CMD_USER "USER "
 #define FTP_CMD_PASS "PASS "
 #define FTP_CMD_QUIT "QUIT "
+#define FTP_CMD_PASV "PASV "
 
 #define FTP_USR_ANON "anonymous"
 
@@ -24,5 +25,6 @@ int ftp_sanity(int sockfd);
 int ftp_recv(int sockfd, char* out_code, char* str, size_t size);
 int ftp_login(int sockfd, url_info_t* info);
 int ftp_quit(int sockfd);
+int ftp_passive(int sockfd, url_info_t* info);
 
 #endif /* INCLUDE_FTP_H_  */

@@ -8,7 +8,7 @@ OBJ := bin
 SOURCES := $(wildcard $(SRC)/*.c)
 OBJECTS := $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SOURCES))
 
-flags = -g -Wall 
+flags = -g -Wall -O3 -funroll-loops 
 libs =
 
 download: bin download_inner

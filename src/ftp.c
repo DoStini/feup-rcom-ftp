@@ -10,6 +10,9 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <regex.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <limits.h>
 
 #include "include/constants.h"
 #include "include/regex.h"
@@ -107,40 +110,31 @@ int send_all(int sockfd, char* buffer, size_t buff_size) {
 }
 
 int ftp_recv(int sockfd, char* out_code, char* string, size_t size) {
-    char buf[RECV_LENGTH];
+    char buf;
 
     recv_state_t state;
     state.handler = start_recv;
     state.code_acc = 0;
     int total = 0, received;
     bool copy = string != NULL;
-    size_t start = 0;
 
     while (state.handler != end_recv) {
-        start = 0;
-        received = recv_minimum(sockfd, buf, RECV_LENGTH);
+        received = recv_minimum(sockfd, &buf, 1);
         if (received < 0) {
             return received;
         }
 
         if (copy) {
             if (total + received > size) {
-                memcpy(string + total, buf, size - total);
                 copy = false;
-
                 total = size;
             } else {
-                memcpy(string + total, buf, received);
-
+                string[total] = buf;
                 total += received;
             }
         }
 
-        while (start < received && state.handler != end_recv) {
-            state.handler(&state, buf[start]);
-
-            start++;
-        }
+        state.handler(&state, buf);
     }
 
     if (string != NULL) {
@@ -287,7 +281,7 @@ int ftp_quit(int sockfd) {
         printf("Logged out.\n");
         return OK;
     } else {
-        fprintf(stderr, "Couldn't authenticate:\n%s\n", message);
+        fprintf(stderr, "Couldn't log out:\n%s\n", message);
         return LOGIN_ERR;
     }
 }
@@ -379,4 +373,84 @@ int ftp_passive(int sockfd) {
     regfree(&preg);
 
     return open_data_connection(sockfd, address, port);
+}
+
+int ftp_read_file(int sockfd, int data_sockfd, const char* filename) {
+    char buffer[RECV_LENGTH];
+    int bytes, err;
+
+    FILE* file = fopen(filename, "wb");
+    if (file == NULL) {
+        perror("fopen()");
+        return RETR_ERR;
+    }
+
+    while ((bytes = recv(data_sockfd, buffer, RECV_LENGTH, 0))) {
+        err = fwrite(buffer, 1, bytes, file);
+        if (err < 0) {
+            perror("fwrite()");
+            return RETR_ERR;
+        }
+
+        printf("recv %d err %d\n", bytes, err);
+        for (int i = 0; i < err; i++) {
+            printf("%x", buffer[i]);
+        }
+        printf("\nnew line\n");
+    }
+
+    return fclose(file);
+}
+
+int ftp_retr(int sockfd, int data_sockfd, url_info_t* info,
+             const char* folder) {
+    int err = 0;
+    char code[FTP_CODE_LENGTH];
+    char message[FTP_MESSAGE_LENGTH];
+
+    err = ftp_send(sockfd, FTP_CMD_RETR, info->path);
+    if (err < 0) {
+        return err;
+    }
+
+    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    if (err < 0) {
+        return err;
+    }
+
+    if (strncmp(code, FTP_CODE_FILE_BEGIN, FTP_CODE_LENGTH) != 0) {
+        printf("Couldn't transfer file:\n%s\n", message);
+        return RETR_ERR;
+    }
+
+    char* ptr = strtok(info->path, "/");
+    char* prev;
+
+    while (ptr != NULL) {
+        prev = ptr;
+        ptr = strtok(NULL, "/");
+    }
+
+    size_t path_size = strlen(folder) + strlen(prev) + 1;
+    char* copy = malloc(path_size);
+    snprintf(copy, path_size, "%s%s", folder, prev);
+
+    err = ftp_read_file(sockfd, data_sockfd, copy);
+    free(copy);
+
+    if (err < 0) {
+        return err;
+    }
+
+    err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
+    if (err < 0) {
+        return err;
+    }
+
+    if (strncmp(code, FTP_CODE_COMPLETE, FTP_CODE_LENGTH) != 0) {
+        printf("Couldn't transfer file:\n%s\n", message);
+        return RETR_ERR;
+    }
+
+    return OK;
 }

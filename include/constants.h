@@ -5,6 +5,7 @@
 #define SERVER_DATA_PORT 20
 #define MESSAGE_LENGTH 1024
 
+#define RETR_ERR -8
 #define PASV_ERR -7
 #define LOGIN_ERR -6
 #define NOT_READY -5

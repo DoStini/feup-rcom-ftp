@@ -392,11 +392,11 @@ int ftp_read_file(int sockfd, int data_sockfd, const char* filename) {
             return RETR_ERR;
         }
 
-        printf("recv %d err %d\n", bytes, err);
-        for (int i = 0; i < err; i++) {
-            printf("%x", buffer[i]);
-        }
-        printf("\nnew line\n");
+        // printf("recv %d err %d\n", bytes, err);
+        // for (int i = 0; i < err; i++) {
+            // printf("%x", buffer[i]);
+        // }
+        // printf("\nnew line\n");
     }
 
     return fclose(file);
@@ -418,7 +418,7 @@ int ftp_retr(int sockfd, int data_sockfd, url_info_t* info,
         return err;
     }
 
-    if (strncmp(code, FTP_CODE_FILE_BEGIN, FTP_CODE_LENGTH) != 0) {
+    if (strncmp(code, FTP_CODE_FILE_BEGIN, FTP_CODE_LENGTH) != 0 && strncmp(code, FTP_CODE_FILE_START, FTP_CODE_LENGTH) != 0) {
         printf("Couldn't transfer file:\n%s\n", message);
         return RETR_ERR;
     }

@@ -18,7 +18,6 @@ int main(int argc, char* argv[], char* envp[]) {
                 "main(): Please provide the server URL as an argument\n");
         exit(-1);
     }
-    printf("datapath %s\n\n\n", folder);
 
     url_info_t info;
 

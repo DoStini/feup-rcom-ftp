@@ -213,7 +213,7 @@ void free_url(url_info_t* url_information) {
 }
 
 int open_data_connection(uint32_t address, uint16_t port) {
-    int sockfd = SOCKET_ERR;
+    int sockfd;
     struct sockaddr_in server_addr;
 
     memset(&server_addr, 0, sizeof(struct sockaddr_in));

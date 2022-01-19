@@ -372,7 +372,7 @@ int ftp_passive(int sockfd) {
 
     regfree(&preg);
 
-    return open_data_connection(sockfd, address, port);
+    return open_data_connection(address, port);
 }
 
 int ftp_read_file(int sockfd, int data_sockfd, const char* filename) {

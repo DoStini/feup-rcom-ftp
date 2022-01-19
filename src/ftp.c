@@ -431,21 +431,27 @@ int ftp_retr(int sockfd, int data_sockfd, url_info_t* info,
     snprintf(copy, path_size, "%s%s", folder, prev);
 
     err = ftp_read_file(sockfd, data_sockfd, copy);
-    free(copy);
-
     if (err < 0) {
+        free(copy);
         return err;
     }
 
     err = ftp_recv(sockfd, code, message, FTP_MESSAGE_LENGTH);
     if (err < 0) {
+        free(copy);
         return err;
     }
 
     if (strncmp(code, FTP_CODE_COMPLETE, FTP_CODE_LENGTH) != 0) {
-        printf("Couldn't transfer file:\n%s\n", message);
+        fprintf(stderr, "Couldn't transfer file:\n%s\n", message);
+        free(copy);
         return RETR_ERR;
     }
 
+    printf(
+        "### File received successfully! ###\n### File was stored in %s ###\n",
+        copy);
+
+    free(copy);
     return OK;
 }

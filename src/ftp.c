@@ -391,12 +391,6 @@ int ftp_read_file(int sockfd, int data_sockfd, const char* filename) {
             perror("fwrite()");
             return RETR_ERR;
         }
-
-        // printf("recv %d err %d\n", bytes, err);
-        // for (int i = 0; i < err; i++) {
-        // printf("%x", buffer[i]);
-        // }
-        // printf("\nnew line\n");
     }
 
     return fclose(file);
